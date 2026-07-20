@@ -51,6 +51,7 @@ LANG = {
 
         # Settings sections
         "sect_timer": "⏱  TIMER DURATIONS",
+        "sect_names": "📛  CUSTOM NAMES",
         "sect_behavior": "⚙  BEHAVIOR",
         "sect_appearance": "🎨  APPEARANCE",
         "sect_rewards": "🎉  REWARDS",
@@ -60,6 +61,9 @@ LANG = {
         "lbl_short_break": "Short break",
         "lbl_long_break": "Long break",
         "lbl_long_after": "Long break after",
+        "lbl_custom_work": "Focus name",
+        "lbl_custom_short": "Short break name",
+        "lbl_custom_long": "Long break name",
         "lbl_min": "min",
         "lbl_sessions": "sessions",
         "lbl_auto_break": "Auto-start breaks after work",
@@ -127,6 +131,7 @@ LANG = {
         "settings_title": "🍅 Pomi 设置",
 
         "sect_timer": "⏱ 计时器时长",
+        "sect_names": "📛 自定义名称",
         "sect_behavior": "⚙ 行为设置",
         "sect_appearance": "🎨 外观设置",
         "sect_rewards": "🎉 庆祝奖励",
@@ -135,6 +140,9 @@ LANG = {
         "lbl_short_break": "短休息",
         "lbl_long_break": "长休息",
         "lbl_long_after": "长休息间隔",
+        "lbl_custom_work": "专注名称",
+        "lbl_custom_short": "短休息名称",
+        "lbl_custom_long": "长休息名称",
         "lbl_min": "分钟",
         "lbl_sessions": "轮",
         "lbl_auto_break": "工作结束后自动开始休息",

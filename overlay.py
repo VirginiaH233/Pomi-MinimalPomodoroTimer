@@ -250,6 +250,18 @@ class PomodoroOverlay:
     def _fg_normal(self):
         return "#cccccc" if self.config.is_dark_preset else "#333333"
 
+    def _phase_name(self) -> str:
+        """Return custom name if set, else default translated phase name."""
+        L = self.config.language
+        p = self.timer.phase
+        if p == Phase.WORK:
+            return self.config.custom_name_work or _(f"phase_{p.name.lower()}", L)
+        if p == Phase.SHORT_BREAK:
+            return self.config.custom_name_short_break or _(f"phase_{p.name.lower()}", L)
+        if p == Phase.LONG_BREAK:
+            return self.config.custom_name_long_break or _(f"phase_{p.name.lower()}", L)
+        return _(f"phase_{p.name.lower()}", L)
+
     # ── build UI ─────────────────────────────────────
 
     def _build_ui(self):
@@ -663,7 +675,7 @@ class PomodoroOverlay:
         L = self.config.language
 
         emb = _("embedded", L) if self._embed_mode else ""
-        phase_name = _(f"phase_{phase.name.lower()}", L)
+        phase_name = self._phase_name()
         menu.add_command(
             label=f"{self.timer.formatted_time()}  {phase_name}{emb}",
             state="disabled")
@@ -739,7 +751,7 @@ class PomodoroOverlay:
         L = self.config.language
         items = []
         emb = _("embedded", L) if self._embed_mode else ""
-        phase_name = _(f"phase_{phase.name.lower()}", L)
+        phase_name = self._phase_name()
         items.append(pystray.MenuItem(
             f"{self.timer.formatted_time()} — {phase_name}{emb}",
             None, enabled=False))
@@ -864,7 +876,7 @@ class PomodoroOverlay:
         if hasattr(self, 'ctrl_lbl'):
             self.ctrl_lbl.config(text="⏸" if self.timer.running else "▶")
         if hasattr(self, 'status_lbl'):
-            self.status_lbl.config(text="Pomi")
+            self.status_lbl.config(text=self._phase_name())
 
         clock_color = self._rgb(
             c["work_fg"] if phase == Phase.WORK

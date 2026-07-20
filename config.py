@@ -54,6 +54,11 @@ class PomodoroConfig:
     auto_start_breaks: bool = True
     auto_start_work: bool = False
 
+    # Custom names
+    custom_name_work: str = ""
+    custom_name_short_break: str = ""
+    custom_name_long_break: str = ""
+
     # Appearance
     color_preset: str = "light"
     window_opacity: float = 0.88
@@ -93,6 +98,7 @@ class PomodoroConfig:
         keys = (
             "work_minutes", "short_break_minutes", "long_break_minutes",
             "sessions_before_long_break", "auto_start_breaks", "auto_start_work",
+            "custom_name_work", "custom_name_short_break", "custom_name_long_break",
             "color_preset", "window_opacity", "window_margin", "always_on_top",
             "embed_enabled",
             "language",

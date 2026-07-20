@@ -50,7 +50,7 @@ class SettingsDialog:
         sh = self.win.winfo_screenheight()
         self.win.geometry(f"+{(sw-460)//2}+{(sh-640)//2}")
 
-        # ── Variables ──
+        # Variables
         self.work_var = tk.IntVar(value=config.work_minutes)
         self.short_var = tk.IntVar(value=config.short_break_minutes)
         self.long_var = tk.IntVar(value=config.long_break_minutes)
@@ -63,6 +63,11 @@ class SettingsDialog:
         self.topmost_var = tk.BooleanVar(value=config.always_on_top)
         self.reward_var = tk.BooleanVar(value=config.reward_enabled)
         self.lang_var = tk.StringVar(value=config.language)
+
+        # Custom name variables
+        self.name_work_var = tk.StringVar(value=config.custom_name_work or "")
+        self.name_short_var = tk.StringVar(value=config.custom_name_short_break or "")
+        self.name_long_var = tk.StringVar(value=config.custom_name_long_break or "")
 
         self._build(accent)
 
@@ -150,6 +155,30 @@ class SettingsDialog:
                                       fg=self.fg_dim, bg=self.bg_hex,
                                       font=("Segoe UI", 10)
                              ).pack(side="left", padx=(4, 0))))
+
+        # 📛 Custom Names
+        self._sect(scroll_frame, "sect_names")
+        self._row(scroll_frame, "lbl_custom_work",
+                  lambda f: tk.Entry(f, textvariable=self.name_work_var,
+                                    font=("Segoe UI", 11),
+                                    bg=self.entry_bg, fg=self.entry_fg,
+                                    relief="flat", width=16,
+                                    insertbackground=self.fg,
+                    ).pack(side="left"))
+        self._row(scroll_frame, "lbl_custom_short",
+                  lambda f: tk.Entry(f, textvariable=self.name_short_var,
+                                    font=("Segoe UI", 11),
+                                    bg=self.entry_bg, fg=self.entry_fg,
+                                    relief="flat", width=16,
+                                    insertbackground=self.fg,
+                    ).pack(side="left"))
+        self._row(scroll_frame, "lbl_custom_long",
+                  lambda f: tk.Entry(f, textvariable=self.name_long_var,
+                                    font=("Segoe UI", 11),
+                                    bg=self.entry_bg, fg=self.entry_fg,
+                                    relief="flat", width=16,
+                                    insertbackground=self.fg,
+                    ).pack(side="left"))
 
         # ⚙ Behavior
         self._sect(scroll_frame, "sect_behavior")
@@ -262,6 +291,9 @@ class SettingsDialog:
         self.config.always_on_top = self.topmost_var.get()
         self.config.reward_enabled = self.reward_var.get()
         self.config.language = self.lang_var.get()
+        self.config.custom_name_work = self.name_work_var.get().strip()
+        self.config.custom_name_short_break = self.name_short_var.get().strip()
+        self.config.custom_name_long_break = self.name_long_var.get().strip()
         self.config.save()
         self.on_save(self.config)
         self.win.destroy()
