@@ -62,6 +62,7 @@ class PomodoroConfig:
 
     # Behaviour
     embed_enabled: bool = True
+    language: str = "中文"
 
     # Rewards
     reward_enabled: bool = True
@@ -94,6 +95,7 @@ class PomodoroConfig:
             "sessions_before_long_break", "auto_start_breaks", "auto_start_work",
             "color_preset", "window_opacity", "window_margin", "always_on_top",
             "embed_enabled",
+            "language",
             "reward_enabled", "reward_duration_sec",
         )
         data = {k: getattr(self, k) for k in keys}

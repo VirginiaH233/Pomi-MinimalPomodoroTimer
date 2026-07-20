@@ -1,36 +1,31 @@
 """Desktop notifications via pystray (balloon tips from system tray)."""
-
 from typing import Optional
 
 from pomtimer import Phase
+from lang import _
 
 
 def notify_phase_change(
     icon: object,
     phase: Phase,
+    lang: str = "en",
     session_count: int = 0,
 ) -> None:
-    """Send a tray balloon notification for a phase transition.
-
-    Args:
-        icon: The pystray.Icon instance (used for .notify())
-        phase: Current phase after the transition
-        session_count: Total completed work sessions
-    """
-    messages = {
-        Phase.WORK: ("🍅 工作时间", "Focus! Time for deep work."),
-        Phase.SHORT_BREAK: ("☕ 短休息", "Take a 5-minute breather."),
-        Phase.LONG_BREAK: (
-            "🎉 长休息",
-            f"Great work! Take a well-deserved 15-minute break. "
-            f"Completed {session_count} sessions this cycle.",
-        ),
-    }
-
-    title, msg = messages.get(phase, ("🍅 Pomodoro", "Phase changed"))
+    """Send a tray balloon notification for a phase transition."""
+    title, msg = "", ""
+    if phase == Phase.WORK:
+        title = _("notify_work_title", lang)
+        msg = _("notify_work_msg", lang)
+    elif phase == Phase.SHORT_BREAK:
+        title = _("notify_short_break_title", lang)
+        msg = _("notify_short_break_msg", lang)
+    elif phase == Phase.LONG_BREAK:
+        title = _("notify_long_break_title", lang)
+        msg = _("notify_long_break_msg", lang)
+    else:
+        return
 
     try:
-        # pystray's notify() shows a Windows balloon tip from the tray icon
         icon.notify(msg, title)
     except Exception:
-        pass  # Silent fail — notifications are non-critical
+        pass

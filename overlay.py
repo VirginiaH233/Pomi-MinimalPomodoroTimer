@@ -15,6 +15,7 @@ from PIL import Image, ImageDraw
 from pomtimer import PomodoroTimer, Phase
 from config import PomodoroConfig, COLOR_PRESETS
 from settings import SettingsDialog
+from lang import _
 
 
 # ── Windows effects ─────────────────────────────────
@@ -42,6 +43,21 @@ def _set_window_alpha(hwnd: int, opacity: float):
         alpha = max(0, min(255, int(opacity * 255)))
         ctypes.windll.user32.SetLayeredWindowAttributes(
             hwnd, 0, alpha, LWA_ALPHA
+        )
+    except Exception:
+        pass
+
+
+def _force_topmost(hwnd: int):
+    """Force window to HWND_TOPMOST via Win32, more reliable than tkinter -topmost."""
+    try:
+        HWND_TOPMOST = -1
+        SWP_NOACTIVATE = 0x0010
+        SWP_NOSIZE = 0x0001
+        SWP_NOMOVE = 0x0002
+        ctypes.windll.user32.SetWindowPos(
+            hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
         )
     except Exception:
         pass
@@ -103,12 +119,8 @@ EMBED_H = 28          # height in embed mode
 EMBED_NEAR_DIST = 40  # px from taskbar edge to trigger embed
 
 PHASE_EMOJI = {
-    Phase.IDLE: "▶", Phase.WORK: "🍅",
+    Phase.IDLE: "🍅", Phase.WORK: "⏱",
     Phase.SHORT_BREAK: "☕", Phase.LONG_BREAK: "🎉",
-}
-PHASE_LABEL = {
-    Phase.IDLE: "Pomi", Phase.WORK: "focus",
-    Phase.SHORT_BREAK: "break", Phase.LONG_BREAK: "long break",
 }
 
 
@@ -193,6 +205,8 @@ class PomodoroOverlay:
         hwnd = self._hwnd()
         _set_rounded_corners(hwnd, self._win_w, self._win_h, 12)
         _set_window_alpha(hwnd, config.window_opacity)
+        if config.always_on_top:
+            _force_topmost(hwnd)
 
         # Mouse events at root level only
         self.root.bind("<Button-1>", self._on_press)
@@ -246,14 +260,23 @@ class PomodoroOverlay:
 
         left = tk.Frame(self.frame, bg=bg)
         left.pack(side="left", padx=(12, 4))
+        # Use grid for precise vertical alignment
+        left.grid_rowconfigure(0, weight=1)
 
-        self.emoji_lbl = tk.Label(left, text="🍅", font=("Segoe UI", 14),
+        self.emoji_lbl = tk.Label(left, text="⏱", font=("Segoe UI", 14),
                                   fg=self._fg_normal(), bg=bg)
-        self.emoji_lbl.pack(side="left", padx=(0, 4))
+        self.emoji_lbl.grid(row=0, column=0, padx=(0, 3), sticky="n")
 
-        self.status_lbl = tk.Label(left, text="idle", font=("Segoe UI", 10),
+        # Play/Pause control button — only clickable toggle
+        self.ctrl_lbl = tk.Label(left, text="▶", font=("Segoe UI", 11),
+                                 fg=self._fg_normal(), bg=bg,
+                                 cursor="hand2")
+        self.ctrl_lbl.grid(row=0, column=1, padx=(0, 4), pady=(5, 0), sticky="n")
+        self.ctrl_lbl.bind("<Button-1>", lambda e: self._toggle())
+
+        self.status_lbl = tk.Label(left, text="Pomi", font=("Segoe UI", 10),
                                    fg=self._fg_dim(), bg=bg)
-        self.status_lbl.pack(side="left")
+        self.status_lbl.grid(row=0, column=2, pady=(5, 0), sticky="n")
 
         right = tk.Frame(self.frame, bg=bg)
         right.pack(side="right", padx=(0, 10))
@@ -352,6 +375,7 @@ class PomodoroOverlay:
 
         # Adjust fonts for slim mode
         self.emoji_lbl.config(font=("Segoe UI", 9))
+        self.ctrl_lbl.config(font=("Segoe UI", 8))
         self.status_lbl.config(font=("Segoe UI", 7))
         self.clock_lbl.config(font=("Consolas", 13, "bold"))
 
@@ -386,6 +410,7 @@ class PomodoroOverlay:
 
         # Restore fonts
         self.emoji_lbl.config(font=("Segoe UI", 14))
+        self.ctrl_lbl.config(font=("Segoe UI", 11))
         self.status_lbl.config(font=("Segoe UI", 10))
 
         # Restore packing — rebuild to be safe
@@ -506,17 +531,14 @@ class PomodoroOverlay:
             self._drag_y = event.y_root
 
     def _on_release(self, event):
-        """If not a drag, treat as click (toggle pause/resume).
+        """If not a drag, do nothing — only ctrl_lbl toggles.
         After drag, check for embed mode."""
         if self._resizing:
             self._resizing = False
             self._resize_corner = None
             return
         if not self._moved:
-            if self.timer.running:
-                self.timer.pause()
-            else:
-                self.timer.start()
+            # ignore click — only ctrl_lbl toggles
             return
         self._moved = False
 
@@ -524,6 +546,17 @@ class PomodoroOverlay:
         self._snap_to_edge()
         # Check if window was dragged near taskbar → enter embed mode
         self._check_and_embed()
+
+    # ── control button toggle ─────────────────────────
+
+    def _toggle(self):
+        """Play/Pause toggle — only called from ctrl_lbl click."""
+        if self.timer.running:
+            self.timer.pause()
+        elif self.timer.phase == Phase.IDLE:
+            self.timer.start()
+        else:
+            self.timer.start()
 
     # ── magnetic snapping ────────────────────────────
 
@@ -627,42 +660,43 @@ class PomodoroOverlay:
         menu = tk.Menu(self.root, tearoff=0, bg="#2d2d2d", fg="#e0e0e0",
                        activebackground="#555", activeforeground="#fff")
         phase = self.timer.phase
+        L = self.config.language
 
-        emb = " [Embedded]" if self._embed_mode else ""
+        emb = _("embedded", L) if self._embed_mode else ""
+        phase_name = _(f"phase_{phase.name.lower()}", L)
         menu.add_command(
-            label=f"{self.timer.formatted_time()}  {phase.name.title()}{emb}",
+            label=f"{self.timer.formatted_time()}  {phase_name}{emb}",
             state="disabled")
         menu.add_separator()
 
         if self.timer.running:
-            menu.add_command(label="⏸ Pause", command=self.timer.pause)
+            menu.add_command(label=_("pause", L), command=self.timer.pause)
         else:
-            lbl = "▶ Start" if phase == Phase.IDLE else "▶ Resume"
+            lbl = _("start", L) if phase == Phase.IDLE else _("resume", L)
             menu.add_command(label=lbl, command=self.timer.start)
         if phase != Phase.IDLE:
             if self.timer.running:
-                menu.add_command(label="⏭ Skip", command=self.timer.skip)
-            menu.add_command(label="⏹ Reset", command=self.timer.reset)
+                menu.add_command(label=_("skip", L), command=self.timer.skip)
+            menu.add_command(label=_("reset", L), command=self.timer.reset)
         menu.add_separator()
 
         color_m = tk.Menu(menu, tearoff=0, bg="#2d2d2d", fg="#e0e0e0")
-        for key, preset in COLOR_PRESETS.items():
+        for key in COLOR_PRESETS:
             chk = "✓ " if key == self.config.color_preset else "  "
             color_m.add_command(
-                label=f"{chk} {preset['label']}",
+                label=f"{chk} {_(f'color_{key}', L)}",
                 command=lambda k=key: self._switch_color(k),
             )
-        menu.add_cascade(label="🎨 Color", menu=color_m)
+        menu.add_cascade(label=f"{_('color', L)}", menu=color_m)
 
-        # Embed toggle
         if self._embed_mode:
-            menu.add_command(label="⏏ Detach from taskbar",
+            menu.add_command(label=_("detach", L),
                              command=self._exit_embed)
         else:
             menu.add_separator()
 
-        menu.add_command(label="⚙ Settings...", command=self._open_settings)
-        menu.add_command(label="✕ Quit", command=self._on_quit)
+        menu.add_command(label=_("settings", L), command=self._open_settings)
+        menu.add_command(label=_("quit", L), command=self._on_quit)
 
         menu.tk_popup(event.x_root, event.y_root)
 
@@ -680,6 +714,8 @@ class PomodoroOverlay:
             hwnd = self._hwnd()
             _set_window_alpha(hwnd, cfg.window_opacity)
             self.root.attributes("-topmost", cfg.always_on_top)
+            if cfg.always_on_top:
+                _force_topmost(hwnd)
             self._refresh_all_colors()
             self._rebuild_tray_menu()
         SettingsDialog(self.root, self.config, on_save)
@@ -688,7 +724,7 @@ class PomodoroOverlay:
 
     def _setup_tray(self):
         self.tray_icon = pystray.Icon(
-            "PomodoroTimer", _make_tray_icon(), "🍅 Pomodoro",
+            "PomodoroTimer", _make_tray_icon(), _("focus", self.config.language),
             menu=self._build_tray_menu(),
         )
         t = threading.Thread(target=self.tray_icon.run, daemon=True)
@@ -700,28 +736,30 @@ class PomodoroOverlay:
 
     def _build_tray_menu(self):
         phase = self.timer.phase
+        L = self.config.language
         items = []
-        emb = " [Embedded]" if self._embed_mode else ""
+        emb = _("embedded", L) if self._embed_mode else ""
+        phase_name = _(f"phase_{phase.name.lower()}", L)
         items.append(pystray.MenuItem(
-            f"{self.timer.formatted_time()} — {phase.name.title()}{emb}",
+            f"{self.timer.formatted_time()} — {phase_name}{emb}",
             None, enabled=False))
         items.append(pystray.Menu.SEPARATOR)
         if self.timer.running:
-            items.append(pystray.MenuItem("⏸ Pause", self._on_pause, default=True))
+            items.append(pystray.MenuItem(_("pause", L), self._on_pause, default=True))
         else:
-            lbl = "▶ Start" if phase == Phase.IDLE else "▶ Resume"
+            lbl = _("start", L) if phase == Phase.IDLE else _("resume", L)
             items.append(pystray.MenuItem(lbl, self._on_start, default=True))
         if phase != Phase.IDLE:
             if self.timer.running:
-                items.append(pystray.MenuItem("⏭ Skip", self._on_skip))
-            items.append(pystray.MenuItem("⏹ Reset", self._on_reset))
+                items.append(pystray.MenuItem(_("skip", L), self._on_skip))
+            items.append(pystray.MenuItem(_("reset", L), self._on_reset))
         items.append(pystray.Menu.SEPARATOR)
         if self._embed_mode:
             items.append(pystray.MenuItem(
-                "⏏ Detach from taskbar", self._exit_embed))
-        items.append(pystray.MenuItem("⚙ Settings...", self._open_settings))
+                _("detach", L), self._exit_embed))
+        items.append(pystray.MenuItem(_("settings", L), self._open_settings))
         items.append(pystray.Menu.SEPARATOR)
-        items.append(pystray.MenuItem("✕ Quit", self._on_quit))
+        items.append(pystray.MenuItem(_("quit", L), self._on_quit))
         return pystray.Menu(*items)
 
     def _on_start(self): self.timer.start()
@@ -743,10 +781,14 @@ class PomodoroOverlay:
         self._tray_notify(phase)
 
     def _tray_notify(self, phase):
+        L = self.config.language
         msgs = {
-            Phase.SHORT_BREAK: ("☕ Break time", "Take a breather!"),
-            Phase.LONG_BREAK: ("🎉 Long break", "Great focus session!"),
-            Phase.WORK: ("🍅 Work time", "Back to focus!"),
+            Phase.SHORT_BREAK: (_("notify_short_break_title", L),
+                                _("notify_short_break_msg", L)),
+            Phase.LONG_BREAK: (_("notify_long_break_title", L),
+                               _("notify_long_break_msg", L)),
+            Phase.WORK: (_("notify_work_title", L),
+                         _("notify_work_msg", L)),
         }
         title, msg = msgs.get(phase, ("Pomodoro", "Phase changed"))
         try:
@@ -768,11 +810,12 @@ class PomodoroOverlay:
             self._rewarding = False
             self._update_display()
             return
+        L = self.config.language
         if step % 2 == 0:
-            self.clock_lbl.config(text="🎉 Done!", fg=GOLD,
+            self.clock_lbl.config(text=_("reward_done", L), fg=GOLD,
                                   font=("Segoe UI", 14, "bold"))
         else:
-            self.clock_lbl.config(text="✨ Great!", fg=WHITE,
+            self.clock_lbl.config(text=_("reward_great", L), fg=WHITE,
                                   font=("Segoe UI", 14, "bold"))
         self.root.after(500, lambda: self._flash_reward(step + 1))
 
@@ -804,6 +847,8 @@ class PomodoroOverlay:
 
         if hasattr(self, 'emoji_lbl'):
             self.emoji_lbl.configure(fg=fg)
+        if hasattr(self, 'ctrl_lbl'):
+            self.ctrl_lbl.configure(fg=fg)
         if hasattr(self, 'status_lbl'):
             self.status_lbl.configure(fg=fd)
         self._update_display()
@@ -816,8 +861,10 @@ class PomodoroOverlay:
 
         if hasattr(self, 'emoji_lbl'):
             self.emoji_lbl.config(text=PHASE_EMOJI.get(phase, "🍅"))
+        if hasattr(self, 'ctrl_lbl'):
+            self.ctrl_lbl.config(text="⏸" if self.timer.running else "▶")
         if hasattr(self, 'status_lbl'):
-            self.status_lbl.config(text=PHASE_LABEL.get(phase, "pomodoro"))
+            self.status_lbl.config(text="Pomi")
 
         clock_color = self._rgb(
             c["work_fg"] if phase == Phase.WORK

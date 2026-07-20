@@ -1,188 +1,253 @@
-"""Settings dialog for Pomodoro Timer."""
-
+"""Settings dialog for Pomodoro Timer — resizable window, follows overlay theme."""
 import tkinter as tk
 from tkinter import ttk
-
 from config import PomodoroConfig, COLOR_PRESETS
+from lang import _
+
+
+def _rgb(t):
+    return f"#{t[0]:02x}{t[1]:02x}{t[2]:02x}"
+
+
+def _is_dark(bg_rgb):
+    r, g, b = bg_rgb
+    return r * 0.299 + g * 0.587 + b * 0.114 < 140
+
+
+LANG_DISPLAY = {"zh": "中文", "en": "English"}
+_REV_LANG = {v: k for k, v in LANG_DISPLAY.items()}
 
 
 class SettingsDialog:
-    """Modal settings window."""
+    """Resizable modal settings window with full i18n support."""
 
     def __init__(self, parent: tk.Tk, config: PomodoroConfig, on_save):
         self.config = config
         self.on_save = on_save
 
+        self.bg_rgb = config.colors["bg"]
+        self.bg_hex = _rgb(self.bg_rgb)
+        self.dark = _is_dark(self.bg_rgb)
+        self.fg = "#d0d0d0" if self.dark else "#333333"
+        self.fg_dim = "#888888" if self.dark else "#777777"
+        self.entry_bg = "#3a3a3a" if self.dark else "#f0f0f0"
+        self.entry_fg = "#e0e0e0" if self.dark else "#333333"
+        self.btn_bg = "#555555" if self.dark else "#e0e0e0"
+        self.btn_fg = "#e0e0e0" if self.dark else "#333333"
+        accent = "#5a8af4"
+
         self.win = tk.Toplevel(parent)
-        self.win.title("🍅 Pomodoro Settings")
-        self.win.geometry("400x560")
-        self.win.resizable(False, False)
-        self.win.configure(bg="#1e1e1e")
+        self.language = config.language
+        self.win.title(_("settings_title", self.language))
+        self.win.minsize(380, 420)
+        self.win.geometry("460x640")
+        self.win.configure(bg=self.bg_hex)
         self.win.attributes("-topmost", True)
         self.win.transient(parent)
         self.win.grab_set()
 
-        self._build()
-
-    # ── helpers ──────────────────────────────────────
-
-    def _sect(self, text: str):
-        tk.Label(self.win, text=text, font=("Segoe UI", 9, "bold"),
-                 fg="#888", bg="#1e1e1e", anchor="w",
-        ).pack(fill="x", padx=18, pady=(14, 4))
-
-    def _row(self, label_text: str, insert_fn, desc_text: str = ""):
-        f = tk.Frame(self.win, bg="#1e1e1e")
-        f.pack(fill="x", padx=18, pady=3)
-        tk.Label(f, text=label_text, fg="#bbb", bg="#1e1e1e",
-                 font=("Segoe UI", 10), anchor="w", width=24,
-        ).pack(side="left")
-        insert_fn(f)
-        if desc_text:
-            tk.Label(f, text=desc_text, fg="#666", bg="#1e1e1e",
-                     font=("Segoe UI", 8),
-            ).pack(side="left", padx=(6, 0))
-
-    def _spin(self, var, lo=1, hi=120, parent_hint=None):
-        """Create Spinbox — will be packed into its real parent."""
-        sb = tk.Spinbox(parent_hint or self.win, from_=lo, to=hi,
-                        textvariable=var, width=4,
-                        bg="#2d2d2d", fg="#e0e0e0",
-                        buttonbackground="#444", relief="flat",
-                        font=("Segoe UI", 10))
-        return sb
-
-    def _pct_label(self, var, parent):
-        """Create a label that shows 0–100% from a 0.0–1.0 DoubleVar."""
-        tv = tk.StringVar(value=f"{int(var.get() * 100)}%")
-        lbl = tk.Label(parent, textvariable=tv, fg="#888", bg="#1e1e1e",
-                       font=("Segoe UI", 9))
-        var.trace_add("write", lambda *_: tv.set(f"{int(var.get() * 100)}%"))
-        return lbl
-
-    # ── build ────────────────────────────────────────
-
-    def _build(self):
-        # Style
-        st = ttk.Style()
-        st.theme_use("clam")
-        for w in ("TFrame", "TLabel"):
-            st.configure(w, background="#1e1e1e", foreground="#ccc")
-        st.configure("TCheckbutton", background="#1e1e1e", foreground="#ccc")
-        st.map("TCheckbutton",
-               background=[("active", "#1e1e1e")],
-               foreground=[("active", "#fff")])
+        sw = self.win.winfo_screenwidth()
+        sh = self.win.winfo_screenheight()
+        self.win.geometry(f"+{(sw-460)//2}+{(sh-640)//2}")
 
         # ── Variables ──
-        self.work_var = tk.IntVar(value=self.config.work_minutes)
-        self.short_var = tk.IntVar(value=self.config.short_break_minutes)
-        self.long_var = tk.IntVar(value=self.config.long_break_minutes)
-        self.sessions_var = tk.IntVar(value=self.config.sessions_before_long_break)
-        self.auto_break_var = tk.BooleanVar(value=self.config.auto_start_breaks)
-        self.auto_work_var = tk.BooleanVar(value=self.config.auto_start_work)
-        self.embed_var = tk.BooleanVar(value=self.config.embed_enabled)
-        self.color_var = tk.StringVar(value=self.config.color_preset)
-        self.opacity_var = tk.DoubleVar(value=self.config.window_opacity)
-        self.topmost_var = tk.BooleanVar(value=self.config.always_on_top)
-        self.reward_var = tk.BooleanVar(value=self.config.reward_enabled)
+        self.work_var = tk.IntVar(value=config.work_minutes)
+        self.short_var = tk.IntVar(value=config.short_break_minutes)
+        self.long_var = tk.IntVar(value=config.long_break_minutes)
+        self.sessions_var = tk.IntVar(value=config.sessions_before_long_break)
+        self.auto_break_var = tk.BooleanVar(value=config.auto_start_breaks)
+        self.auto_work_var = tk.BooleanVar(value=config.auto_start_work)
+        self.embed_var = tk.BooleanVar(value=config.embed_enabled)
+        self.color_var = tk.StringVar(value=config.color_preset)
+        self.opacity_var = tk.DoubleVar(value=config.window_opacity)
+        self.topmost_var = tk.BooleanVar(value=config.always_on_top)
+        self.reward_var = tk.BooleanVar(value=config.reward_enabled)
+        self.lang_var = tk.StringVar(value=config.language)
 
-        # ── ⏱ Timer ──
-        self._sect("⏱  TIMER DURATIONS")
+        self._build(accent)
 
-        self._row("Work duration",
-                  lambda f: (self._spin(self.work_var).pack(in_=f, side="left"),
-                             tk.Label(f, text="min", fg="#666", bg="#1e1e1e",
-                                      font=("Segoe UI", 9)
-                             ).pack(in_=f, side="left", padx=(4, 0))))
+    # ── helpers ─────────────────────────────────────
 
-        self._row("Short break",
-                  lambda f: (self._spin(self.short_var).pack(in_=f, side="left"),
-                             tk.Label(f, text="min", fg="#666", bg="#1e1e1e",
-                                      font=("Segoe UI", 9)
-                             ).pack(in_=f, side="left", padx=(4, 0))))
+    def _L(self, key: str) -> str:
+        return _(key, self.language)
 
-        self._row("Long break",
-                  lambda f: (self._spin(self.long_var).pack(in_=f, side="left"),
-                             tk.Label(f, text="min", fg="#666", bg="#1e1e1e",
-                                      font=("Segoe UI", 9)
-                             ).pack(in_=f, side="left", padx=(4, 0))))
+    def _color_labels(self):
+        """Return list of translated color preset labels."""
+        return [_(f"color_{key}", self.language) for key in COLOR_PRESETS]
 
-        self._row("Long break after",
-                  lambda f: (self._spin(self.sessions_var, 1, 20).pack(in_=f, side="left"),
-                             tk.Label(f, text="sessions", fg="#666", bg="#1e1e1e",
-                                      font=("Segoe UI", 9)
-                             ).pack(in_=f, side="left", padx=(4, 0))))
+    def _sect(self, parent, key: str):
+        tk.Label(parent, text=self._L(key),
+                 font=("Segoe UI", 10, "bold"),
+                 fg=self.fg_dim, bg=self.bg_hex, anchor="w",
+        ).pack(fill="x", padx=18, pady=(16, 6))
 
-        # ── ⚙ Behavior ──
-        self._sect("⚙  BEHAVIOR")
-
-        self._row("", lambda f: ttk.Checkbutton(
-            f, text="Auto-start breaks after work",
-            variable=self.auto_break_var, style="TCheckbutton",
-        ).pack(side="left"))
-
-        self._row("", lambda f: ttk.Checkbutton(
-            f, text="Auto-start work after breaks",
-            variable=self.auto_work_var, style="TCheckbutton",
-        ).pack(side="left"))
-
-        self._row("", lambda f: ttk.Checkbutton(
-            f, text="Snap to taskbar edge on drop",
-            variable=self.embed_var, style="TCheckbutton",
-        ).pack(side="left"))
-
-        # ── 🎨 Appearance ──
-        self._sect("🎨  APPEARANCE")
-
-        color_names = [f"{v['label']} ({k})" for k, v in COLOR_PRESETS.items()]
-        self._row("Color preset", lambda f: ttk.Combobox(
-            f, textvariable=self.color_var,
-            values=list(COLOR_PRESETS.keys()),
-            state="readonly", width=10,
-            font=("Segoe UI", 10),
-        ).pack(side="left"))
-
-        self._row("Transparency", lambda f: (
-            tk.Scale(f, from_=0.35, to=1.0, resolution=0.05,
-                     orient="horizontal", variable=self.opacity_var,
-                     bg="#2d2d2d", fg="#e0e0e0", troughcolor="#444",
-                     length=130, showvalue=False, highlightthickness=0,
-            ).pack(side="left", padx=(0, 6)),
-            self._pct_label(self.opacity_var, f).pack(side="left"),
-        ))
-
-        self._row("", lambda f: ttk.Checkbutton(
-            f, text="Always on top",
-            variable=self.topmost_var, style="TCheckbutton",
-        ).pack(side="left"))
-
-        # ── 🎉 Rewards ──
-        self._sect("🎉  REWARDS")
-
-        self._row("", lambda f: ttk.Checkbutton(
-            f, text="Show celebration on work complete",
-            variable=self.reward_var, style="TCheckbutton",
-        ).pack(side="left"))
-
-        # ── Buttons ──
-        btn_frame = tk.Frame(self.win, bg="#1e1e1e")
-        btn_frame.pack(fill="x", padx=18, pady=(22, 14))
-
-        tk.Button(btn_frame, text="💾  Save", command=self._save,
-                  bg="#4a8af4", fg="#fff", relief="flat",
-                  font=("Segoe UI", 10, "bold"),
-                  padx=24, pady=5, cursor="hand2",
-                  activebackground="#5a9aff", activeforeground="#fff",
-        ).pack(side="left", padx=(0, 10))
-
-        tk.Button(btn_frame, text="Cancel", command=self.win.destroy,
-                  bg="#333", fg="#aaa", relief="flat",
-                  font=("Segoe UI", 10),
-                  padx=24, pady=5, cursor="hand2",
-                  activebackground="#444", activeforeground="#ddd",
+    def _row(self, parent, label_key: str, insert_fn):
+        f = tk.Frame(parent, bg=self.bg_hex)
+        f.pack(fill="x", padx=18, pady=4)
+        tk.Label(f, text=self._L(label_key),
+                 fg=self.fg, bg=self.bg_hex,
+                 font=("Segoe UI", 11), anchor="w", width=22,
         ).pack(side="left")
+        insert_fn(f)
 
-    # ── save ─────────────────────────────────────────
+    def _chk(self, parent, label_key, var):
+        chk_text = tk.StringVar(value="✓" if var.get() else "✗")
+        lbl = tk.Label(parent, textvariable=chk_text,
+                       font=("Segoe UI", 11), fg=self.fg, bg=self.bg_hex,
+                       cursor="hand2", width=2, anchor="center")
+        lbl.pack(side="left")
+        lbl.bind("<Button-1>", lambda e: (
+            var.set(not var.get()),
+            chk_text.set("✓" if var.get() else "✗"),
+        ))
+        lbl_text = tk.Label(parent, text=self._L(label_key),
+                            fg=self.fg, bg=self.bg_hex,
+                            font=("Segoe UI", 11), cursor="hand2")
+        lbl_text.pack(side="left", padx=(4, 0))
+
+    # ── build ───────────────────────────────────────
+
+    def _build(self, accent):
+        canvas = tk.Canvas(self.win, bg=self.bg_hex, highlightthickness=0)
+        scroll_frame = tk.Frame(canvas, bg=self.bg_hex)
+        scroll_frame.bind("<Configure>",
+                          lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scroll_frame, anchor="nw", tags="inner")
+        canvas.pack(side="top", fill="both", expand=True, padx=0, pady=0)
+
+        def _wheel(event):
+            canvas.yview_scroll(-1 * (event.delta // 120), "units")
+        self.win.bind_all("<MouseWheel>", _wheel)
+        self.win.bind("<Destroy>", lambda e: self.win.unbind_all("<MouseWheel>"))
+
+        # ⏱  Timer
+        self._sect(scroll_frame, "sect_timer")
+
+        self._row(scroll_frame, "lbl_work_duration",
+                  lambda f: (self._spin(f, self.work_var).pack(side="left"),
+                             tk.Label(f, text=self._L("lbl_min"),
+                                      fg=self.fg_dim, bg=self.bg_hex,
+                                      font=("Segoe UI", 10)
+                             ).pack(side="left", padx=(4, 0))))
+
+        self._row(scroll_frame, "lbl_short_break",
+                  lambda f: (self._spin(f, self.short_var).pack(side="left"),
+                             tk.Label(f, text=self._L("lbl_min"),
+                                      fg=self.fg_dim, bg=self.bg_hex,
+                                      font=("Segoe UI", 10)
+                             ).pack(side="left", padx=(4, 0))))
+
+        self._row(scroll_frame, "lbl_long_break",
+                  lambda f: (self._spin(f, self.long_var).pack(side="left"),
+                             tk.Label(f, text=self._L("lbl_min"),
+                                      fg=self.fg_dim, bg=self.bg_hex,
+                                      font=("Segoe UI", 10)
+                             ).pack(side="left", padx=(4, 0))))
+
+        self._row(scroll_frame, "lbl_long_after",
+                  lambda f: (self._spin(f, self.sessions_var, 1, 20).pack(side="left"),
+                             tk.Label(f, text=self._L("lbl_sessions"),
+                                      fg=self.fg_dim, bg=self.bg_hex,
+                                      font=("Segoe UI", 10)
+                             ).pack(side="left", padx=(4, 0))))
+
+        # ⚙ Behavior
+        self._sect(scroll_frame, "sect_behavior")
+        self._row(scroll_frame, "", lambda f: self._chk(f, "lbl_auto_break", self.auto_break_var))
+        self._row(scroll_frame, "", lambda f: self._chk(f, "lbl_auto_work", self.auto_work_var))
+        self._row(scroll_frame, "", lambda f: self._chk(f, "lbl_snap", self.embed_var))
+
+        # 🎨 Appearance
+        self._sect(scroll_frame, "sect_appearance")
+
+        self._row(scroll_frame, "lbl_color",
+                  lambda f: self._color_combo(f).pack(side="left"))
+
+        self._row(scroll_frame, "lbl_opacity",
+                  lambda f: (
+                      tk.Scale(f, from_=0.35, to=1.0, resolution=0.05,
+                               orient="horizontal", variable=self.opacity_var,
+                               bg=self.entry_bg, fg=self.fg, troughcolor="#444",
+                               length=140, showvalue=False, highlightthickness=0,
+                      ).pack(side="left", padx=(0, 8)),
+                      self._pct_lbl(f).pack(side="left"),
+                  ))
+
+        self._row(scroll_frame, "", lambda f: self._chk(f, "lbl_topmost", self.topmost_var))
+
+        # 🌐 Language
+        self._row(scroll_frame, "lbl_language",
+                  lambda f: self._lang_combo(f).pack(side="left"))
+
+        # 🎉 Rewards
+        self._sect(scroll_frame, "sect_rewards")
+        self._row(scroll_frame, "", lambda f: self._chk(f, "lbl_reward", self.reward_var))
+
+        # ── Bottom buttons ──
+        btn_bar = tk.Frame(self.win, bg=self.bg_hex, height=56)
+        btn_bar.pack(side="bottom", fill="x")
+        btn_bar.pack_propagate(False)
+
+        tk.Button(btn_bar, text=self._L("save"), command=self._save,
+                  bg=accent, fg="#fff", relief="flat",
+                  font=("Segoe UI", 11, "bold"),
+                  padx=28, pady=6, cursor="hand2",
+                  activebackground="#6a9aff", activeforeground="#fff",
+        ).pack(side="right", padx=(0, 18), pady=10)
+
+        tk.Button(btn_bar, text=self._L("cancel"), command=self.win.destroy,
+                  bg=self.btn_bg, fg=self.btn_fg, relief="flat",
+                  font=("Segoe UI", 11),
+                  padx=28, pady=6, cursor="hand2",
+                  activebackground="#666" if self.dark else "#d0d0d0",
+                  activeforeground="#fff" if self.dark else "#333",
+        ).pack(side="right", padx=(0, 8), pady=10)
+
+    def _color_combo(self, parent):
+        """Combobox showing translated color names; maps display → key on select."""
+        labels = self._color_labels()
+        key_order = list(COLOR_PRESETS.keys())
+        combo = ttk.Combobox(parent, values=labels, state="readonly",
+                             width=16, font=("Segoe UI", 10))
+        # Set current value from stored key
+        current_idx = key_order.index(self.color_var.get())
+        combo.current(current_idx)
+        # On select, map display label back to stored key
+        combo.bind("<<ComboboxSelected>>", lambda e: self.color_var.set(
+            self._color_key_from_label(combo.get())
+        ))
+        return combo
+
+    def _color_key_from_label(self, label: str) -> str:
+        rev = {_(f"color_{k}", self.language): k for k in COLOR_PRESETS}
+        return rev.get(label, list(COLOR_PRESETS)[0])
+
+    def _lang_combo(self, parent):
+        """Combobox showing 中文/English; maps display → zh/en on select."""
+        combo = ttk.Combobox(parent, values=["中文", "English"],
+                             state="readonly", width=8, font=("Segoe UI", 10))
+        combo.current(0 if self.lang_var.get() == "zh" else 1)
+        combo.bind("<<ComboboxSelected>>", lambda e: self.lang_var.set(
+            _REV_LANG.get(combo.get(), "zh")
+        ))
+        return combo
+
+    def _spin(self, parent, var, lo=1, hi=120):
+        return tk.Spinbox(parent, from_=lo, to=hi,
+                          textvariable=var, width=4,
+                          bg=self.entry_bg, fg=self.entry_fg,
+                          buttonbackground="#555", relief="flat",
+                          font=("Segoe UI", 11))
+
+    def _pct_lbl(self, parent):
+        tv = tk.StringVar(value=f"{int(self.opacity_var.get() * 100)}%")
+        lbl = tk.Label(parent, textvariable=tv, fg=self.fg_dim, bg=self.bg_hex,
+                       font=("Segoe UI", 10))
+        self.opacity_var.trace_add("write", lambda *_: tv.set(
+            f"{int(self.opacity_var.get() * 100)}%"))
+        return lbl
+
+    # ── save ────────────────────────────────────────
 
     def _save(self):
         self.config.work_minutes = self.work_var.get()
@@ -196,6 +261,7 @@ class SettingsDialog:
         self.config.window_opacity = self.opacity_var.get()
         self.config.always_on_top = self.topmost_var.get()
         self.config.reward_enabled = self.reward_var.get()
+        self.config.language = self.lang_var.get()
         self.config.save()
         self.on_save(self.config)
         self.win.destroy()
