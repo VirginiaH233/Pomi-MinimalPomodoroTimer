@@ -5,7 +5,6 @@ echo.
 
 pyinstaller --onefile --windowed --noconfirm ^
     --name "PomodoroTimer" ^
-    --add-data "README.md;." ^
     --collect-all pystray ^
     --collect-all PIL ^
     --hidden-import win32gui ^
@@ -14,6 +13,9 @@ pyinstaller --onefile --windowed --noconfirm ^
     --hidden-import pystray._win32 ^
     --hidden-import ctypes ^
     --hidden-import tkinter ^
+    --hidden-import lang ^
+    --add-data "呼应.mp3;." ^
+    --add-data "灵光.mp3;." ^
     main.py
 
 echo.
