@@ -902,6 +902,7 @@ class PomodoroOverlay:
             self.timer.tick()
             self._update_display()
             self._rebuild_tray_menu()
+            _force_topmost(self._hwnd())
         except Exception:
             pass
         self.root.after(1000, self._schedule_tick)
