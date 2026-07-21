@@ -5,6 +5,7 @@ echo.
 
 pyinstaller --onefile --windowed --noconfirm ^
     --name "Pomi" ^
+    --icon "Pomi.ico" ^
     --collect-all pystray ^
     --collect-all PIL ^
     --hidden-import win32gui ^

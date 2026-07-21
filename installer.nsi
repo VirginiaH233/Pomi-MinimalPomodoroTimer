@@ -9,6 +9,8 @@ InstallDir "$PROGRAMFILES64\Pomi"
 RequestExecutionLevel admin
 
 !define MUI_ABORTWARNING
+!define MUI_ICON "Pomi.ico"
+!define MUI_UNICON "Pomi.ico"
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
