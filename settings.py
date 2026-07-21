@@ -298,7 +298,7 @@ class SettingsDialog:
         labels = SOUND_LABELS_ZH if self.language == "zh" else SOUND_LABELS_EN
         choices = SOUND_CHOICES
         combo = ttk.Combobox(parent, values=labels + [_("sound_custom", self.language)],
-                             state="readonly", width=16, font=("Segoe UI", 10))
+                             state="readonly", width=18, font=("Segoe UI", 10))
         # Map current var value to index
         cur = var.get()
         idx = choices.index(cur) if cur in choices else len(choices)
@@ -311,15 +311,20 @@ class SettingsDialog:
                 # Preview
                 play_sound(choices[sel])
             else:
-                # Browse
+                # Browse (WAV + MP3)
                 fp = filedialog.askopenfilename(
                     title=_("sound_custom", self.language),
-                    filetypes=[("WAV files", "*.wav"), ("All files", "*.*")],
+                    filetypes=[
+                        ("Audio files", "*.wav *.mp3"),
+                        ("WAV files", "*.wav"),
+                        ("MP3 files", "*.mp3"),
+                        ("All files", "*.*"),
+                    ],
                 )
                 if fp:
-                    var.set(fp)
-                    play_sound(fp)
-                    # Update combo text to show filename
+                    # Store as __file__ path for portable key
+                    var.set(f"__file__{fp}")
+                    play_sound(var.get())
                     combo.set(_("sound_custom_set", self.language))
 
         combo.bind("<<ComboboxSelected>>", _on_select)
